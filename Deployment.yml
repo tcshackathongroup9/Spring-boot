@@ -15,7 +15,7 @@ spec:
         app: spring
     spec:
       containers:
-      - name: nginx
+      - name: spring
         image: tcshackathongroup9/Spring-boot
         ports:
         - containerPort: 80
