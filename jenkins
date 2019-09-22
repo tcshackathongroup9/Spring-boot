@@ -1,0 +1,75 @@
+pipeline {
+  agent any
+  stages {
+    stage('SCM  Checkout') {
+      steps {
+        git(url: 'https://github.com/tcshackathongroup9/Spring-boot', branch: 'master', credentialsId: 'gitlab')
+            }
+        }
+    stage("build & SonarQube analysis") {
+            agent any
+            steps {
+              withSonarQubeEnv('sonarqube') {
+                sh 'mvn clean package sonar:sonar'
+              }
+            }
+        }
+	stage("Build image")
+	{
+		sh 'docker build -t tcshackathongroup9/Spring-boot .'
+	}
+	stage("Push Docker Image to Nexus")
+	{
+	 withCredentials([string(credentialsId: 'dockerhub', variable: 'nexuspwd')]) {
+          sh "docker login -u tcshackathongroup9 -p ${nexuspwd}" 10.128.0.5:8081
+         }
+		 sh " docker push tcshackathongroup9/Spring-boot 10.128.0.5:8083
+	}
+	stage("Creating kubernetes cluster")
+	{
+	kubernetes{
+	apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spring-boot
+  labels:
+    app: spring
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: spring
+  template:
+    metadata:
+      labels:
+        app: spring
+    spec:
+      containers:
+      - name: nginx
+        image: tcshackathongroup9/Spring-boot
+        ports:
+        - containerPort: 80
+	
+	}
+	}
+	kubernetes_service
+	{
+	apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  labels:
+    app: spring
+    tier: frontend
+spec:
+
+  ports:
+    - port: 80
+  selector:
+    app: spring
+    tier: frontend
+
+	}
+	
+    }
+}
